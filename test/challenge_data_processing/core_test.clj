@@ -3,6 +3,7 @@
     [clojure.test :refer [deftest testing is]]
     [clojure.string :as string]
     [clojure.java.io :as io]
+    [clojure.walk :as walk]
     [jsonista.core :as json]))
 
 
@@ -17,7 +18,7 @@
      (count skus)]))
 
 
-(defn as-csv [count-skus]
+(defn csv [count-skus]
   (->> (cons ["productUrl" "price" "originalPrice" "numberOfSKUs"] count-skus)
        (map #(string/join "," %))
        (string/join (System/lineSeparator))))
@@ -33,7 +34,7 @@
             6]
            (-> (count-skus list-items) (first))))
     (is (= "productUrl,price,originalPrice,numberOfSKUs\n'//www.lazada.co.th/products/qianxiu-q127-the-new-moisturizing-and-waterproof-moisturizer-is-not-easy-to-wear-cokkicosmetic-i224295407-s946252295.html?search=1',\"39.00\",'109.00',6"
-           (->> (count-skus list-items) (take 1) as-csv)))))
+           (->> (count-skus list-items) (take 1) csv)))))
 
 
 (defn filtered-price [list-items]
@@ -60,19 +61,41 @@
            (-> list-items filtered-price avg-price)))))
 
 
+(defn count-products-by-brand-name [list-items]
+  (let [count-products (fn [[brand-name products]]
+                         [brand-name (count products)])]
+    (->> list-items
+         (group-by #(get % "brandName"))
+         (walk/walk count-products identity))))
+
+
+(deftest question-03-test
+  (let [list-items (-> lipstick
+                       (get-in ["mods" "listItems"]))
+        result (->> list-items
+                    count-products-by-brand-name)]
+    (is (= 40
+           (count result)))))
+
+
 (comment
   (def lipstick (-> "lipstick.json" io/resource slurp json/read-value))
   (keys lipstick)
   ; question 01
   (->> (get-in lipstick ["mods" "listItems"])
        count-skus
-       as-csv
+       csv
        (spit "target/first.csv"))
   ; question 02
   (->> (get-in lipstick ["mods" "listItems"])
        filtered-price
        avg-price
        (spit "target/second.csv"))
+  ; question 03
+  (->> (get-in lipstick ["mods" "listItems"])
+       count-products-by-brand-name
+       json/write-value-as-string
+       (spit "target/third.json"))
   (kaocha.repl/run-all))
 
 (kaocha.repl/run-all)
