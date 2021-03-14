@@ -19,24 +19,6 @@
        (string/join (System/lineSeparator))))
 
 
-(defn count-products-by-brand-name
-  [list-items]
-  (let [count-products (fn [[brand-name products]]
-                         [brand-name (count products)])]
-    (->> list-items
-         (group-by #(get % "brandName"))
-         (walk/walk count-products identity))))
-
-
-(deftest question-03-test
-  (let [list-items (-> lipstick
-                       (get-in ["mods" "listItems"]))
-        result (->> list-items
-                    count-products-by-brand-name)]
-    (is (= 40
-           (count result)))))
-
-
 (defn reduce-image-vals
   [seq-node]
   (->> seq-node
