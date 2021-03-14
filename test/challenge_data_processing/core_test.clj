@@ -12,34 +12,15 @@
 (defonce lipstick (-> "lipstick.json" io/resource slurp json/read-value))
 
 
-(defn count-skus-csv-body [list-items]
-  (for [{:strs [productUrl price originalPrice skus]} list-items]
-    [(str "'" productUrl "'")
-     (str "\"" price "\"")
-     (str "'" originalPrice "'")
-     (count skus)]))
-
-
-(defn csv [csv-head csv-body]
+(defn csv
+  [csv-head csv-body]
   (->> (cons csv-head csv-body)
        (map #(string/join "," %))
        (string/join (System/lineSeparator))))
 
 
-(deftest question-01-test
-  (let [list-items (-> lipstick
-                       (get-in ["mods" "listItems"]))]
-    (is (= 100 (count (count-skus-csv-body list-items))))
-    (is (= ["'//www.lazada.co.th/products/qianxiu-q127-the-new-moisturizing-and-waterproof-moisturizer-is-not-easy-to-wear-cokkicosmetic-i224295407-s946252295.html?search=1'"
-            "\"39.00\""
-            "'109.00'"
-            6]
-           (-> (count-skus-csv-body list-items) (first))))
-    (is (= "productUrl,price,originalPrice,numberOfSKUs\n'//www.lazada.co.th/products/qianxiu-q127-the-new-moisturizing-and-waterproof-moisturizer-is-not-easy-to-wear-cokkicosmetic-i224295407-s946252295.html?search=1',\"39.00\",'109.00',6"
-           (->> (count-skus-csv-body list-items) (take 1) (csv ["productUrl" "price" "originalPrice" "numberOfSKUs"]))))))
-
-
-(defn filtered-price [list-items]
+(defn filtered-price
+  [list-items]
   (for [{:strs [brandName price skus]} list-items
         :when (= brandName "OEM")
         :when (< 2 (count skus))]
@@ -48,7 +29,8 @@
       (catch Throwable _ 0))))
 
 
-(defn avg-price [prices]
+(defn avg-price
+  [prices]
   {:pre [(pos? (count prices))]}
   (-> (/ (apply + prices) (count prices))
       double))
@@ -63,7 +45,8 @@
            (-> list-items filtered-price avg-price)))))
 
 
-(defn count-products-by-brand-name [list-items]
+(defn count-products-by-brand-name
+  [list-items]
   (let [count-products (fn [[brand-name products]]
                          [brand-name (count products)])]
     (->> list-items
@@ -80,7 +63,8 @@
            (count result)))))
 
 
-(defn reduce-image-vals [seq-node]
+(defn reduce-image-vals
+  [seq-node]
   (->> seq-node
        (filter map?)
        (apply merge)
@@ -91,14 +75,16 @@
        (apply set/union)))
 
 
-(defn merge-image-vals [map-node]
+(defn merge-image-vals
+  [map-node]
   (->> map-node
        keys
        (filter map?)
        (apply merge-with set/union)))
 
 
-(defn extract-image-vals [node]
+(defn extract-image-vals
+  [node]
   (let [type-node (when (map-entry? node)
                     :map-entry)]
     (match [type-node node]
@@ -109,7 +95,8 @@
       :else node)))
 
 
-(defn image-vals [lipstick]
+(defn image-vals
+  [lipstick]
   (->> lipstick
        (walk/postwalk extract-image-vals)
        keys
@@ -117,7 +104,8 @@
        (apply set/union)))
 
 
-(defn file-names [image-vals]
+(defn file-names
+  [image-vals]
   (->> image-vals
        (map #(string/split % #"/"))
        (map last)
@@ -138,13 +126,15 @@
            (-> lipstick image-vals file-names)))))
 
 
-(defn sort-by-price-asc [list-items]
+(defn sort-by-price-asc
+  [list-items]
   (into (sorted-set-by (fn [{price-01 "price"} {price-02 "price"}]
                          (<= (Double/parseDouble price-01) (Double/parseDouble price-02))))
         list-items))
 
 
-(defn purchase-min-price [{:keys [balance list-items purchased-items]}]
+(defn purchase-min-price
+  [{:keys [balance list-items purchased-items]}]
   (let [[{:strs [brandName price] :as item} & other-items] (sort-by-price-asc list-items)]
     (if (and price (< 0 balance))
       {:balance (- balance (Double/parseDouble price))
@@ -155,11 +145,13 @@
        :purchased-items purchased-items})))
 
 
-(defn purchase-item-possible? [{:keys [balance]}]
+(defn purchase-item-possible?
+  [{:keys [balance]}]
   (<= 0 balance))
 
 
-(defn purchased-items-maximum-possible [balance list-items]
+(defn purchased-items-maximum-possible
+  [balance list-items]
   (->> {:balance balance :list-items list-items}
        (iterate purchase-min-price)
        (take-while purchase-item-possible?)
@@ -167,7 +159,8 @@
        (:purchased-items)))
 
 
-(defn purchased-items-csv-body [list-items]
+(defn purchased-items-csv-body
+  [list-items]
   (for [{:strs [itemId brandName price]} list-items]
     [(str "'" itemId "'")
      (str "'" brandName "'")
@@ -269,5 +262,6 @@
        (csv ["itemId" "brandName" "price"])
        (spit "target/fifth.csv"))
   (kaocha.repl/run-all))
+
 
 (kaocha.repl/run-all)
