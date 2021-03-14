@@ -2,6 +2,7 @@
   (:gen-class)
   (:require
     [challenge-data-processing.question-01 :as question-01]
+    [challenge-data-processing.question-02 :as question-02]
     [jsonista.core :as json]))
 
 
@@ -13,6 +14,8 @@
                     json/read-value)]
       (println "Write answer to first.csv ...")
       (spit "first.csv" (question-01/answer input))
+      (println "Write answer to second.csv ...")
+      (spit "second.csv" (question-02/answer input))
       (println "Done."))
     (catch Throwable ex
       (println ex))))

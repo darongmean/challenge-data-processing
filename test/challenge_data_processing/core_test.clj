@@ -19,32 +19,6 @@
        (string/join (System/lineSeparator))))
 
 
-(defn filtered-price
-  [list-items]
-  (for [{:strs [brandName price skus]} list-items
-        :when (= brandName "OEM")
-        :when (< 2 (count skus))]
-    (try
-      (Double/parseDouble price)
-      (catch Throwable _ 0))))
-
-
-(defn avg-price
-  [prices]
-  {:pre [(pos? (count prices))]}
-  (-> (/ (apply + prices) (count prices))
-      double))
-
-
-(deftest question-02-test
-  (let [list-items (-> lipstick
-                       (get-in ["mods" "listItems"]))]
-    (is (= [39.0 59.0 59.0 59.0 49.0]
-           (filtered-price list-items)))
-    (is (= 53.0
-           (-> list-items filtered-price avg-price)))))
-
-
 (defn count-products-by-brand-name
   [list-items]
   (let [count-products (fn [[brand-name products]]

@@ -17,7 +17,7 @@
       (testing "it should have the same count as original list"
         (is (= 100 (count (question-01/count-skus-csv-body list-items)))))
 
-      (testing "it should count the number of SKUs"
+      (testing "it should count the number of skus"
         (is (= ["'//www.lazada.co.th/products/qianxiu-q127-the-new-moisturizing-and-waterproof-moisturizer-is-not-easy-to-wear-cokkicosmetic-i224295407-s946252295.html?search=1'"
                 "\"39.00\""
                 "'109.00'"
