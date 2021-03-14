@@ -12,7 +12,7 @@
 (defonce lipstick (-> "lipstick.json" io/resource slurp json/read-value))
 
 
-(defn count-skus [list-items]
+(defn count-skus-csv-body [list-items]
   (for [{:strs [productUrl price originalPrice skus]} list-items]
     [(str "'" productUrl "'")
      (str "\"" price "\"")
@@ -20,8 +20,8 @@
      (count skus)]))
 
 
-(defn csv [count-skus]
-  (->> (cons ["productUrl" "price" "originalPrice" "numberOfSKUs"] count-skus)
+(defn csv [csv-head csv-body]
+  (->> (cons csv-head csv-body)
        (map #(string/join "," %))
        (string/join (System/lineSeparator))))
 
@@ -29,14 +29,14 @@
 (deftest question-01-test
   (let [list-items (-> lipstick
                        (get-in ["mods" "listItems"]))]
-    (is (= 100 (count (count-skus list-items))))
+    (is (= 100 (count (count-skus-csv-body list-items))))
     (is (= ["'//www.lazada.co.th/products/qianxiu-q127-the-new-moisturizing-and-waterproof-moisturizer-is-not-easy-to-wear-cokkicosmetic-i224295407-s946252295.html?search=1'"
             "\"39.00\""
             "'109.00'"
             6]
-           (-> (count-skus list-items) (first))))
+           (-> (count-skus-csv-body list-items) (first))))
     (is (= "productUrl,price,originalPrice,numberOfSKUs\n'//www.lazada.co.th/products/qianxiu-q127-the-new-moisturizing-and-waterproof-moisturizer-is-not-easy-to-wear-cokkicosmetic-i224295407-s946252295.html?search=1',\"39.00\",'109.00',6"
-           (->> (count-skus list-items) (take 1) csv)))))
+           (->> (count-skus-csv-body list-items) (take 1) (csv ["productUrl" "price" "originalPrice" "numberOfSKUs"]))))))
 
 
 (defn filtered-price [list-items]
@@ -138,13 +138,113 @@
            (-> lipstick image-vals file-names)))))
 
 
+(defn sort-by-price-asc [list-items]
+  (into (sorted-set-by (fn [{price-01 "price"} {price-02 "price"}]
+                         (<= (Double/parseDouble price-01) (Double/parseDouble price-02))))
+        list-items))
+
+
+(defn purchase-min-price [{:keys [balance list-items purchased-items]}]
+  (let [[{:strs [brandName price] :as item} & other-items] (sort-by-price-asc list-items)]
+    (if (and price (< 0 balance))
+      {:balance (- balance (Double/parseDouble price))
+       :list-items (remove #(-> % (get "brandName") (= brandName)) other-items)
+       :purchased-items (conj purchased-items item)}
+      {:balance -1
+       :list-items []
+       :purchased-items purchased-items})))
+
+
+(defn purchase-item-possible? [{:keys [balance]}]
+  (<= 0 balance))
+
+
+(defn purchased-items-maximum-possible [balance list-items]
+  (->> {:balance balance :list-items list-items}
+       (iterate purchase-min-price)
+       (take-while purchase-item-possible?)
+       (last)
+       (:purchased-items)))
+
+
+(defn purchased-items-csv-body [list-items]
+  (for [{:strs [itemId brandName price]} list-items]
+    [(str "'" itemId "'")
+     (str "'" brandName "'")
+     (str "\"" price "\"")]))
+
+
+(deftest question-05-test
+  (let [list-items [{"price" "10" "brandName" "a"}
+                    {"price" "5" "brandName" "b"}
+                    {"price" "15" "brandName" "b"}
+                    {"price" "5" "brandName" "c"}]]
+    (is (= [{:balance 5
+             :list-items list-items}
+            {:balance 0.0
+             :list-items [{"price" "5" "brandName" "b"}
+                          {"price" "10" "brandName" "a"}
+                          {"price" "15" "brandName" "b"}]
+             :purchased-items [{"price" "5" "brandName" "c"}]}]
+           (->> {:balance 5 :list-items list-items}
+                (iterate purchase-min-price)
+                (take-while purchase-item-possible?))))
+    (is (= [{:balance 10
+             :list-items list-items}
+            {:balance 5.0
+             :list-items [{"price" "5" "brandName" "b"}
+                          {"price" "10" "brandName" "a"}
+                          {"price" "15" "brandName" "b"}]
+             :purchased-items [{"price" "5" "brandName" "c"}]}
+            {:balance 0.0
+             :list-items [{"price" "10" "brandName" "a"}]
+             :purchased-items [{"price" "5" "brandName" "b"} {"price" "5" "brandName" "c"}]}]
+           (->> {:balance 10 :list-items list-items}
+                (iterate purchase-min-price)
+                (take-while purchase-item-possible?))))
+    (is (= [{:balance 50
+             :list-items list-items}
+            {:balance 45.0
+             :list-items [{"price" "5" "brandName" "b"}
+                          {"price" "10" "brandName" "a"}
+                          {"price" "15" "brandName" "b"}]
+             :purchased-items [{"price" "5" "brandName" "c"}]}
+            {:balance 40.0
+             :list-items [{"price" "10" "brandName" "a"}]
+             :purchased-items [{"price" "5" "brandName" "b"} {"price" "5" "brandName" "c"}]}
+            {:balance 30.0
+             :list-items []
+             :purchased-items [{"price" "10" "brandName" "a"} {"price" "5" "brandName" "b"} {"price" "5" "brandName" "c"}]}]
+           (->> {:balance 50 :list-items list-items}
+                (iterate purchase-min-price)
+                (take-while purchase-item-possible?))))))
+
+
+(deftest question-05-02-test
+  (let [list-items (-> lipstick
+                       (get-in ["mods" "listItems"]))
+        result (->> (purchased-items-maximum-possible 250 list-items)
+                    purchased-items-csv-body)]
+    (is (= [["'224295407'" "'OEM'" "\"39.00\""]
+            ["'341864493'" "'Novo'" "\"39.00\""]
+            ["'331292065'" "'IMAGES'" "\"29.00\""]
+            ["'350478554'" "'ZIRANMI'" "\"29.00\""]
+            ["'346252619'" "'PEINIFEN'" "\"25.00\""]
+            ["'278125439'" "'sivanna'" "\"24.00\""]
+            ["'523686357'" "'Kiss Beauty'" "\"20.00\""]
+            ["'316046847'" "'MENOW'" "\"19.00\""]
+            ["'543952820'" "'Tanako'" "\"15.00\""]
+            ["'502436001'" "'No Brand'" "\"7.00\""]]
+           result))))
+
+
 (comment
   (def lipstick (-> "lipstick.json" io/resource slurp json/read-value))
   (keys lipstick)
   ; question 01
   (->> (get-in lipstick ["mods" "listItems"])
-       count-skus
-       csv
+       count-skus-csv-body
+       (csv ["productUrl" "price" "originalPrice" "numberOfSKUs"])
        (spit "target/first.csv"))
   ; question 02
   (->> (get-in lipstick ["mods" "listItems"])
@@ -162,6 +262,12 @@
        file-names
        (string/join (System/lineSeparator))
        (spit "target/fourth.csv"))
+  ; question 05
+  (->> (get-in lipstick ["mods" "listItems"])
+       (purchased-items-maximum-possible 250)
+       purchased-items-csv-body
+       (csv ["itemId" "brandName" "price"])
+       (spit "target/fifth.csv"))
   (kaocha.repl/run-all))
 
 (kaocha.repl/run-all)
