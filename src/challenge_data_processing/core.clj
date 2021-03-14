@@ -4,6 +4,7 @@
     [challenge-data-processing.question-01 :as question-01]
     [challenge-data-processing.question-02 :as question-02]
     [challenge-data-processing.question-03 :as question-03]
+    [challenge-data-processing.question-04 :as question-04]
     [jsonista.core :as json]))
 
 
@@ -17,8 +18,10 @@
       (spit "first.csv" (question-01/answer input))
       (println "Write answer to second.csv ...")
       (spit "second.csv" (question-02/answer input))
-      (println "Write answer to third.csv ...")
+      (println "Write answer to third.json ...")
       (spit "third.json" (question-03/answer input))
+      (println "Write answer to fourth.csv ...")
+      (spit "fourth.csv" (question-04/answer input))
       (println "Done."))
     (catch Throwable ex
       (println ex))))
